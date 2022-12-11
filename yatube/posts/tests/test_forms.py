@@ -86,11 +86,8 @@ class PostFormTests(TestCase):
         }
         prev_count_post = self.get_count_paginator_group_list()
         response = self.authorized_user.post(
-           reverse(
-        'posts:post_edit',
-        args=(post.id,)),
-        data=form_data,
-        follow=True
+            reverse("posts:post_edit", args=(post.id,)),
+            data=form_data, follow=True
         )
         self.assertRedirects(
             response,
