@@ -2,6 +2,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 from ..models import Group, Post
+from ..const import TEXT_LEN
 
 User = get_user_model()
 
@@ -13,39 +14,17 @@ class PostModelTest(TestCase):
         super().setUpClass()
         cls.user = User.objects.create_user(username='auth')
         cls.post = Post.objects.create(
-            text='Тестовый текст больше 15 символов для проверки...',
+            text=f'Тестовый текст больше {TEXT_LEN} символов для проверки...',
             author=cls.user,
         )
 
     def test_post_str(self):
         """Тест: __str__ у post."""
-        self.assertEqual(self.post.text[:15], str(self.post))
-
-
-class GroupModelTest(TestCase):
-    user = None
-    post = None
-
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        cls.user = User.objects.create_user(username='auth')
-        cls.group = Group.objects.create(
-            title='Тестовая группа',
-            slug='Тестовый слаг',
-            description='Тестовое описание',
-        )
-        cls.post = Post.objects.create(
-            text='Тестовый текст больше 15 символов для проверки...',
-            author=cls.user,
-        )
-
-    def test_group_str(self):
-        """Тест: __str__ у group."""
-        self.assertEqual(self.group.title, str(self.group))
+        text = self.post.text[:TEXT_LEN]
+        self.assertEqual(text, str(self.post))
 
     def test_verbose_name(self):
-        post = GroupModelTest.post
+        post = PostModelTest.post
         field_verboses = {
             'text': 'Текст нового поста',
             'author': 'Автор',
@@ -59,7 +38,7 @@ class GroupModelTest(TestCase):
 
     def test_help_text(self):
         """help_text в полях совпадает с ожидаемым."""
-        post = GroupModelTest.post
+        post = PostModelTest.post
         field_help_texts = {
             'text': 'Введите текст поста',
             'group': 'Выберите группу'
@@ -68,3 +47,23 @@ class GroupModelTest(TestCase):
             with self.subTest(field=field):
                 self.assertEqual(
                     post._meta.get_field(field).help_text, expected_value)
+
+
+class GroupModelTest(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.user = User.objects.create_user(username='auth')
+        cls.group = Group.objects.create(
+            title='Тестовая группа',
+            slug='Тестовый слаг',
+            description='Тестовое описание',
+        )
+        cls.post = Post.objects.create(
+            text=f'Тестовый текст больше {TEXT_LEN} символов для проверки...',
+            author=cls.user,
+        )
+
+    def test_group_str(self):
+        """Тест: __str__ у group."""
+        self.assertEqual(self.group.title, str(self.group))

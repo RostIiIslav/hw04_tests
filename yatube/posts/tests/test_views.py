@@ -4,14 +4,12 @@ from django.test import Client, TestCase
 from django.urls import reverse
 
 from ..models import Group, Post
+from ..const import NUM_POST, NUM_PAG
 
 User = get_user_model()
 
 
 class PostPagesTests(TestCase):
-    group = None
-    user = None
-
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -46,6 +44,16 @@ class PostPagesTests(TestCase):
         for reverse_page in context:
             with self.subTest(reverse_page=reverse_page):
                 response = self.authorized_client.get(reverse_page)
+                is_edit = response.context.get("is_edit")
+                if reverse_page == reverse(
+                    "posts:post_edit",
+                    kwargs={
+                        "post_id": self.post.id,
+                    },
+                ):
+                    self.assertEqual(is_edit, True)
+                else:
+                    self.assertNotEqual(is_edit, True)
                 self.assertIsInstance(
                     response.context['form'].fields['text'],
                     forms.fields.CharField
@@ -54,11 +62,6 @@ class PostPagesTests(TestCase):
                     response.context['form'].fields['group'],
                     forms.fields.ChoiceField
                 )
-
-    def test_index_page_show_correct_context(self):
-        """Шаблон index.html сформирован с правильным контекстом."""
-        response = self.authorized_client.get(reverse('posts:index'))
-        self.check_post(response.context['page_obj'][0])
 
     def test_groups_page_show_correct_context(self):
         """Шаблон group_list.html сформирован с правильным контекстом."""
@@ -188,10 +191,10 @@ class PaginatorViewsTest(TestCase):
         """Тестируем Paginator.Первые 10 постов на первой странице index"""
         response = self.client.get(reverse('posts:index'))
         self.assertEqual(
-            len(response.context.get('page_obj').object_list), 10)
+            len(response.context.get('page_obj').object_list), NUM_POST)
 
     def test_second_page_contains_three_records(self):
         """Тестируем Paginator.Последние 3 поста на второй странице index"""
         response = self.client.get(reverse('posts:index') + '?page=2')
         self.assertEqual(
-            len(response.context.get('page_obj').object_list), 3)
+            len(response.context.get('page_obj').object_list), NUM_PAG)

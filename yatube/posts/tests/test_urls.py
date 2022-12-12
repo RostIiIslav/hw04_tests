@@ -9,11 +9,6 @@ User = get_user_model()
 
 
 class PostURLTests(TestCase):
-
-    post = None
-    user = None
-    group = None
-
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -34,13 +29,12 @@ class PostURLTests(TestCase):
 
         cache.clear()
         self.guest_client = Client()
-        self.user = PostURLTests.user
         self.authorized_client = Client()
         self.authorized_client.force_login(self.user)
 
-        self.url_only_authorized = ['/create/', '/posts/1/edit/']
-        self.url_non_existent = ['/non_existent_page/']
-        self.url_full_list = [
+        self.url_only_authorized = ('/create/', '/posts/1/edit/',)
+        self.url_non_existent = ('/non_existent_page/',)
+        self.url_full_list = (
             '/',
             '/group/test_slug/',
             '/create/',
@@ -48,7 +42,7 @@ class PostURLTests(TestCase):
             '/posts/1/edit/',
             '/profile/user_test/',
             '/non_existent_page/',
-        ]
+        )
 
     def test_url_for_guest(self):
         """Тест: проверка доступности страниц для гостя """
@@ -97,13 +91,14 @@ class PostURLTests(TestCase):
 
     def test_authorized_redirects(self):
         """Тест: редиректа у авторизованного пользователя — не автора"""
-        author = PostURLTests.post.author
-        if author != self.user:
-            response = self.authorized_client.get(
-                '/posts/1/edit/',
-                follow=True
-            )
-            self.assertRedirects(response, '/posts/1/')
+        user_not_author = User.objects.create(username='user_not_author')
+        authorized_client_not_author = Client()
+        authorized_client_not_author.force_login(user_not_author)
+        response = authorized_client_not_author.get(
+            '/posts/1/edit/',
+            follow=True
+        )
+        self.assertRedirects(response, '/posts/1/')
 
     def test_guest_redirects(self):
         """Тест: редиректа у гостя"""

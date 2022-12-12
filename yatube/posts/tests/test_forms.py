@@ -40,12 +40,12 @@ class PostFormTests(TestCase):
 
     def test_authorized_user_create_post(self):
         """Проверка создания записи авторизированным клиентом."""
-        count_before = self.get_count_paginator_group_list()
-        self.assertEqual(0, count_before,
+        count_before_paginator = self.get_count_paginator_group_list()
+        count_before_db = Post.objects.count()
+        self.assertEqual(count_before_db, count_before_paginator,
                          'подсчет количества записей '
                          'до вызова post - провален')
 
-        posts_count = Post.objects.count()
         form_data = {
             'text': 'Текст поста',
             'group': self.group.id,
@@ -63,19 +63,20 @@ class PostFormTests(TestCase):
                 kwargs={'username': self.post_author.username})
         )
 
-        self.assertEqual(Post.objects.count(), posts_count + 1)
+        self.assertEqual(Post.objects.count(), count_before_db + 1)
         post = Post.objects.latest('id')
         self.assertEqual(post.text, form_data['text'])
         self.assertEqual(post.author, self.post_author)
         self.assertEqual(post.group_id, form_data['group'])
-        count_after = self.get_count_paginator_group_list()
-        self.assertEqual(1, count_after,
+        count_after_paginator = self.get_count_paginator_group_list()
+        count_after_db = Post.objects.count()
+        self.assertEqual(count_after_db, count_after_paginator,
                          'подсчет количества записей после '
                          'post - провален')
 
     def test_authorized_user_edit_post(self):
-        """Проверка редактирования записи авторизированным клиентом."""
-        post = Post.objects.create(
+        """Проверка редактирования записи авторизированным автором."""
+        post_created = Post.objects.create(
             text='Текст поста для редактирования',
             author=self.post_author,
             group=self.group,
@@ -86,18 +87,19 @@ class PostFormTests(TestCase):
         }
         prev_count_post = self.get_count_paginator_group_list()
         response = self.authorized_user.post(
-            reverse("posts:post_edit", args=(post.id,)),
+            reverse("posts:post_edit", args=(post_created.id,)),
             data=form_data, follow=True
         )
         self.assertRedirects(
             response,
-            reverse('posts:post_detail', kwargs={'post_id': post.id})
+            reverse('posts:post_detail', kwargs={'post_id': post_created.id})
         )
         self.assertEqual(response.status_code, HTTPStatus.OK)
-        post = Post.objects.latest('id')
-        self.assertEqual(post.text, form_data['text'])
-        self.assertEqual(post.author, self.post_author)
-        self.assertEqual(post.group_id, form_data['group'])
+        post_edited = Post.objects.get(pk=post_created.id)
+        self.assertEqual(post_edited.text, form_data['text'])
+        self.assertEqual(post_edited.author, self.post_author)
+        self.assertEqual(post_edited.pub_date, post_created.pub_date)
+        self.assertEqual(post_edited.group_id, form_data['group'])
 
         new_count_post = self.get_count_paginator_group_list()
         self.assertEqual(prev_count_post - 1, new_count_post,
@@ -121,3 +123,95 @@ class PostFormTests(TestCase):
         redirect = reverse('login') + '?next=' + reverse('posts:post_create')
         self.assertRedirects(response, redirect)
         self.assertEqual(Post.objects.count(), posts_count)
+
+    def test_form_post_edit_authorised_client_nonauthor(self):
+        '''Проверяем, что при авторизованном не авторе
+        форма не редактирует запись'''
+        post_for_edit = Post.objects.create(
+            author=PostFormTests.post_author,
+            text='Тестовый пост 2',
+            group=self.group,
+        )
+        id_post = post_for_edit.id
+        form_data = {
+            'text': 'New',
+            'group': self.group_new.id,
+        }
+        self.user2 = User.objects.create_user(username='Non_post_writer')
+        self.authorised_client2 = Client()
+        self.authorised_client2.force_login(self.user2)
+        response = self.authorised_client2.post(
+            reverse('posts:post_edit', kwargs={'post_id': id_post}),
+            data=form_data,
+        )
+        post_edited = Post.objects.get(pk=id_post)
+        self.assertNotEqual(post_edited.text, form_data['text'])
+        self.assertEqual(post_edited.author, self.post_author)
+        self.assertEqual(post_edited.pub_date, post_for_edit.pub_date)
+        self.assertNotEqual(post_edited.group_id, form_data['group'])
+        self.assertRedirects(
+            response, f'/posts/{id_post}/'
+        )
+
+    def test_edit_post_anonim(self):
+        """Проверка при запросе неавторизованного пользователя
+        пост не будет отредактирован."""
+        post_for_edit = Post.objects.create(
+            author=PostFormTests.post_author,
+            text='Тестовый пост 2',
+            group=self.group,
+        )
+        id_post = post_for_edit.id
+        form_data = {
+            'text': 'New',
+            'group': self.group_new.id,
+        }
+        response = self.guest_user.post(
+            reverse('posts:post_edit', kwargs={'post_id': id_post}),
+            data=form_data,
+        )
+        post_edited = Post.objects.get(pk=id_post)
+        self.assertNotEqual(post_edited.text, form_data['text'])
+        self.assertEqual(post_edited.author, self.post_author)
+        self.assertEqual(post_edited.pub_date, post_for_edit.pub_date)
+        self.assertNotEqual(post_edited.group_id, form_data['group'])
+        self.assertRedirects(
+            response, reverse("login") + "?next=" + reverse(
+                "posts:post_edit", kwargs={"post_id": id_post})
+        )
+
+    def test_authorized_user_create_post_without_group(self):
+        """Проверка создания записи авторизированным клиентом без группы."""
+        count_before_paginator_group = self.get_count_paginator_group_list()
+        count_before_db = Post.objects.count()
+        self.assertEqual(
+            count_before_db,
+            count_before_paginator_group,
+            "подсчет количества записей " "до вызова post - провален",
+        )
+
+        form_data = {
+            'text': 'Текст поста',
+        }
+        response = self.authorized_user.post(
+            reverse('posts:post_create'),
+            data=form_data,
+            follow=True
+        )
+
+        self.assertRedirects(
+            response,
+            reverse(
+                'posts:profile',
+                kwargs={'username': self.post_author.username})
+        )
+
+        self.assertEqual(Post.objects.count(), count_before_db + 1)
+        post = Post.objects.latest('id')
+        self.assertEqual(post.text, form_data['text'])
+        self.assertEqual(post.author, self.post_author)
+        count_after_paginator_group = self.get_count_paginator_group_list()
+        count_after_db = Post.objects.count()
+        self.assertNotEqual(count_after_db, count_after_paginator_group,
+                            'подсчет количества записей после '
+                            'post - провален')
