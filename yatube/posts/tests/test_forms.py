@@ -176,4 +176,3 @@ class PostFormTests(TestCase):
         self.assertNotEqual(count_before_db, post.group)
         count_after_db = Post.objects.count()
         self.assertEqual(count_after_db, count_before_db + 1)
-        
