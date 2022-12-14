@@ -114,10 +114,10 @@ class PostFormTests(TestCase):
             data=form_data,
         )
         post_edited = Post.objects.get(pk=id_post)
-        self.assertNotEqual(post_edited, post_for_edit.text)
-        self.assertEqual(post_edited.author, self.post_author)
+        self.assertEqual(post_edited.text, post_for_edit.text)
+        self.assertEqual(post_edited.author, post_for_edit.author)
         self.assertEqual(post_edited.pub_date, post_for_edit.pub_date)
-        self.assertNotEqual(post_edited.group_id, post_edited.group)
+        self.assertEqual(post_edited.group, post_for_edit.group)
         self.assertRedirects(
             response, f'/posts/{id_post}/'
         )
@@ -140,10 +140,10 @@ class PostFormTests(TestCase):
             data=form_data,
         )
         post_edited = Post.objects.get(pk=id_post)
-        self.assertNotEqual(post_edited.text, form_data['text'])
-        self.assertEqual(post_edited.author, self.post_author)
+        self.assertEqual(post_edited.text, post_for_edit.text)
+        self.assertEqual(post_edited.author, post_for_edit.author)
         self.assertEqual(post_edited.pub_date, post_for_edit.pub_date)
-        self.assertNotEqual(post_edited.group_id, form_data['group'])
+        self.assertEqual(post_edited.group, post_for_edit.group)
         self.assertRedirects(
             response, reverse("login") + "?next=" + reverse(
                 "posts:post_edit", kwargs={"post_id": id_post})
@@ -173,8 +173,7 @@ class PostFormTests(TestCase):
         post = Post.objects.latest('id')
         self.assertEqual(post.text, form_data['text'])
         self.assertEqual(post.author, self.post_author)
-        self.assertNotEqual(post.group, post.author)
+        self.assertNotEqual(count_before_db, post.group)
         count_after_db = Post.objects.count()
-        self.assertNotEqual(count_after_db,
-                            'подсчет количества записей после '
-                            'post - провален')
+        self.assertEqual(count_after_db, count_before_db + 1)
+        
