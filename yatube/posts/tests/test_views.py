@@ -35,33 +35,31 @@ class PostPagesTests(TestCase):
             self.assertEqual(post.author, self.post.author)
             self.assertEqual(post.group.id, self.post.group.id)
 
-    def test_forms_correct(self):
-        """Проверка коректности формы."""
-        context = {
-            reverse('posts:post_create'),
-            reverse('posts:post_edit', kwargs={'post_id': self.post.id, }),
-        }
-        for reverse_page in context:
-            with self.subTest(reverse_page=reverse_page):
-                response = self.authorized_client.get(reverse_page)
-                is_edit = response.context.get("is_edit")
-                if reverse_page == reverse(
-                    "posts:post_edit",
-                    kwargs={
-                        "post_id": self.post.id,
-                    },
-                ):
-                    self.assertEqual(is_edit, True)
-                else:
-                    self.assertNotEqual(is_edit, True)
-                self.assertIsInstance(
-                    response.context['form'].fields['text'],
-                    forms.fields.CharField
-                )
-                self.assertIsInstance(
-                    response.context['form'].fields['group'],
-                    forms.fields.ChoiceField
-                )
+    def test_create_post_show_correct_context(self):
+        """Шаблон create_post сформирован с правильным контекстом."""
+        response = (self.authorized_client.get(reverse('posts:post_create')))
+        form_fields = {'text': forms.fields.CharField,
+                       'group': forms.fields.ChoiceField}
+        for value, expected in form_fields.items():
+            with self.subTest(value=value):
+                form_field = response.context.get('form').fields.get(value)
+                self.assertIsInstance(form_field, expected)
+
+    def test_create_post_show_correct_context_for_post_edit(self):
+        """Шаблон create_post сформирован с правильным контекстом
+        при редактировании поста."""
+        response = self.authorized_client.get(
+            reverse('posts:post_edit', kwargs={'post_id': self.post.id}))
+        form_fields = {'text': forms.fields.CharField,
+                       'group': forms.fields.ChoiceField}
+
+        for value, expected in form_fields.items():
+            with self.subTest(value=value):
+                form_field = response.context.get('form').fields.get(value)
+                self.assertIsInstance(form_field, expected)
+
+        self.assertEqual(response.context['is_edit'], True)
+        self.assertIsInstance(response.context['is_edit'], bool)
 
     def test_groups_page_show_correct_context(self):
         """Шаблон group_list.html сформирован с правильным контекстом."""
